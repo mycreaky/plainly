@@ -59,10 +59,10 @@
 
   function toPlain(text) {
     return text
-      .replace(/\r\n?| | /g, '\n')          // 줄바꿈 통일
+      .replace(/\r\n?|\u2028|\u2029/g, '\n')        // 줄바꿈 통일
       .replace(/<[^>]*>/g, '')                         // HTML 태그 제거
-      .replace(/[​-‍﻿]/g, '')           // 보이지 않는 문자 제거
-      .replace(/ /g, ' ')                         // nbsp -> 공백
+      .replace(/[\u200B-\u200D\uFEFF]/g, '')          // 보이지 않는 문자 제거
+      .replace(/\u00A0/g, ' ')                        // nbsp -> 공백
       .replace(/[ \t]+$/gm, '')                        // 줄 끝 공백 제거
       .replace(/\n{2,}/g, '\n');                       // 2개 이상 줄바꿈 -> 1개
   }
