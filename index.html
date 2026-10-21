@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plainly - 서식 제거 &amp; 줄바꿈 정리</title>
+<style>
+  :root {
+    --bg: #f7f7f8; --fg: #1c1c1e; --card: #fff; --border: #d9d9de; --accent: #2563eb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #151517; --fg: #ececf0; --card: #202024; --border: #3a3a40; --accent: #60a5fa; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px 16px; background: var(--bg); color: var(--fg);
+    font: 16px/1.5 -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  }
+  main { max-width: 760px; margin: 0 auto; }
+  h1 { margin: 0 0 4px; font-size: 1.6rem; }
+  p.sub { margin: 0 0 20px; opacity: .7; }
+  label { display: block; margin: 16px 0 6px; font-weight: 600; }
+  textarea {
+    width: 100%; min-height: 180px; padding: 12px; resize: vertical;
+    background: var(--card); color: inherit; border: 1px solid var(--border); border-radius: 8px;
+    font: inherit;
+  }
+  textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .row { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+  button {
+    padding: 8px 14px; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--card); color: inherit; font: inherit; cursor: pointer;
+  }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .status { opacity: .7; font-size: .9rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Plainly</h1>
+  <p class="sub">붙여넣은 텍스트의 서식을 모두 제거하고, 연속된 줄바꿈을 하나로 줄여줍니다.</p>
+
+  <label for="input">입력</label>
+  <textarea id="input" placeholder="여기에 텍스트를 입력하거나 붙여넣으세요" autofocus></textarea>
+
+  <label for="output">결과</label>
+  <textarea id="output" readonly></textarea>
+  <div class="row">
+    <button id="copy" class="primary" type="button">결과 복사</button>
+    <button id="clear" type="button">지우기</button>
+    <span id="status" class="status" aria-live="polite"></span>
+  </div>
+</main>
+
+<script>
+  const input = document.getElementById('input');
+  const output = document.getElementById('output');
+  const status = document.getElementById('status');
+
+  function toPlain(text) {
+    return text
+      .replace(/\r\n?| | /g, '\n')          // 줄바꿈 통일
+      .replace(/<[^>]*>/g, '')                         // HTML 태그 제거
+      .replace(/[​-‍﻿]/g, '')           // 보이지 않는 문자 제거
+      .replace(/ /g, ' ')                         // nbsp -> 공백
+      .replace(/[ \t]+$/gm, '')                        // 줄 끝 공백 제거
+      .replace(/\n{2,}/g, '\n');                       // 2개 이상 줄바꿈 -> 1개
+  }
+
+  function update() {
+    output.value = toPlain(input.value);
+  }
+
+  function flash(msg) {
+    status.textContent = msg;
+    setTimeout(() => { status.textContent = ''; }, 1500);
+  }
+
+  // 서식 있는 내용을 붙여넣어도 text/plain 만 사용
+  input.addEventListener('paste', (e) => {
+    const plain = e.clipboardData && e.clipboardData.getData('text/plain');
+    if (plain == null) return;
+    e.preventDefault();
+    input.setRangeText(plain, input.selectionStart, input.selectionEnd, 'end');
+    update();
+  });
+  input.addEventListener('input', update);
+
+  document.getElementById('copy').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(output.value);
+      flash('복사됨');
+    } catch {
+      output.select();
+      document.execCommand('copy');
+      flash('복사됨');
+    }
+  });
+
+  document.getElementById('clear').addEventListener('click', () => {
+    input.value = '';
+    update();
+    input.focus();
+  });
+</script>
+</body>
+</html>
