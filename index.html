@@ -23,6 +23,17 @@
   nav button[aria-current="page"] { background: var(--accent); border-color: var(--accent); color: #fff; }
   main { flex: 1; min-width: 0; max-width: 760px; margin: 0 auto; }
   section[hidden] { display: none; }
+  input[type="text"] {
+    width: 100%; padding: 8px 12px; background: var(--card); color: inherit;
+    border: 1px solid var(--border); border-radius: 8px; font: inherit;
+  }
+  input[type="text"]:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .preview {
+    min-height: 3em; max-height: 240px; overflow: auto; padding: 12px; white-space: pre-wrap; word-break: break-word;
+    background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+  }
+  .preview mark { background: #fde047; color: #1c1c1e; border-radius: 2px; }
+  .error { color: #dc2626; }
   .opts { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 8px; }
   .opts label { display: inline-flex; gap: 6px; margin: 0; font-weight: 400; cursor: pointer; }
   @media (max-width: 600px) {
@@ -53,6 +64,7 @@
   <div class="brand">Plainly</div>
   <button type="button" data-tool="plain" aria-current="page">서식 제거 · 줄바꿈 정리</button>
   <button type="button" data-tool="swap">공백 ↔ 줄바꿈</button>
+  <button type="button" data-tool="replace">찾기 · 바꾸기</button>
 </nav>
 <main>
 <section id="tool-plain">
@@ -89,6 +101,34 @@
     <button id="swap-copy" class="primary" type="button">결과 복사</button>
     <button id="swap-clear" type="button">지우기</button>
     <span id="swap-status" class="status" aria-live="polite"></span>
+  </div>
+</section>
+
+<section id="tool-replace" hidden>
+  <h1>찾기 · 바꾸기</h1>
+  <p class="sub">문장에서 키워드를 찾아 다른 문자열로 바꿉니다. 정규식도 사용할 수 있습니다.</p>
+
+  <label for="rp-find">찾을 내용</label>
+  <input type="text" id="rp-find" autocomplete="off" spellcheck="false">
+  <label for="rp-with">바꿀 내용</label>
+  <input type="text" id="rp-with" autocomplete="off" spellcheck="false">
+  <div class="opts">
+    <label><input type="checkbox" id="rp-regex"> 정규식</label>
+    <label><input type="checkbox" id="rp-case"> 대소문자 구분</label>
+  </div>
+
+  <label for="rp-input">입력</label>
+  <textarea id="rp-input" placeholder="여기에 문장을 입력하세요"></textarea>
+
+  <label>찾은 결과 미리보기</label>
+  <div id="rp-preview" class="preview" aria-live="polite"></div>
+
+  <label for="rp-output">결과</label>
+  <textarea id="rp-output" readonly></textarea>
+  <div class="row">
+    <button id="rp-copy" class="primary" type="button">결과 복사</button>
+    <button id="rp-clear" type="button">지우기</button>
+    <span id="rp-status" class="status" aria-live="polite"></span>
   </div>
 </section>
 </main>
@@ -176,6 +216,63 @@
     swapIn.value = '';
     swapUpdate();
     swapIn.focus();
+  });
+
+  // ---- 찾기 · 바꾸기 ----
+  const rp = (id) => document.getElementById(id);
+  const rpStatus = rp('rp-status');
+
+  function rpUpdate() {
+    const find = rp('rp-find').value;
+    const text = rp('rp-input').value;
+    rpStatus.classList.remove('error');
+    rpStatus.textContent = '';
+    const preview = rp('rp-preview');
+    preview.textContent = text;
+    if (!find) { rp('rp-output').value = text; return; }
+    const isRegex = rp('rp-regex').checked;
+    const flags = 'g' + (rp('rp-case').checked ? '' : 'i');
+    try {
+      const re = new RegExp(isRegex ? find : find.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), flags);
+      const rep = rp('rp-with').value;
+      const count = (text.match(re) || []).length;
+      rp('rp-output').value = isRegex ? text.replace(re, rep) : text.replace(re, () => rep);
+      rpStatus.textContent = count + '건 변경';
+
+      // 일치 부분 하이라이트
+      preview.textContent = '';
+      let last = 0, m;
+      while ((m = re.exec(text)) !== null) {
+        if (m[0] === '') { re.lastIndex++; continue; }
+        preview.append(text.slice(last, m.index));
+        const mark = document.createElement('mark');
+        mark.textContent = m[0];
+        preview.append(mark);
+        last = m.index + m[0].length;
+      }
+      preview.append(text.slice(last));
+    } catch (e) {
+      rp('rp-output').value = '';
+      rpStatus.classList.add('error');
+      rpStatus.textContent = '정규식 오류: ' + e.message;
+    }
+  }
+  ['rp-find', 'rp-with', 'rp-input'].forEach((id) => rp(id).addEventListener('input', rpUpdate));
+  ['rp-regex', 'rp-case'].forEach((id) => rp(id).addEventListener('change', rpUpdate));
+  rp('rp-copy').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(rp('rp-output').value);
+    } catch {
+      rp('rp-output').select();
+      document.execCommand('copy');
+    }
+    rpStatus.classList.remove('error');
+    rpStatus.textContent = '복사됨';
+  });
+  rp('rp-clear').addEventListener('click', () => {
+    rp('rp-input').value = '';
+    rpUpdate();
+    rp('rp-input').focus();
   });
 
   // ---- 사이드바 ----
