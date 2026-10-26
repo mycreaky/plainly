@@ -16,7 +16,20 @@
     margin: 0; padding: 24px 16px; background: var(--bg); color: var(--fg);
     font: 16px/1.5 -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
   }
-  main { max-width: 760px; margin: 0 auto; }
+  body { display: flex; gap: 24px; align-items: flex-start; }
+  nav { flex: 0 0 180px; position: sticky; top: 24px; display: flex; flex-direction: column; gap: 6px; }
+  nav .brand { font-weight: 700; font-size: 1.1rem; margin-bottom: 8px; }
+  nav button { text-align: left; }
+  nav button[aria-current="page"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  main { flex: 1; min-width: 0; max-width: 760px; margin: 0 auto; }
+  section[hidden] { display: none; }
+  .opts { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 8px; }
+  .opts label { display: inline-flex; gap: 6px; margin: 0; font-weight: 400; cursor: pointer; }
+  @media (max-width: 600px) {
+    body { flex-direction: column; }
+    nav { position: static; flex: none; width: 100%; flex-direction: row; flex-wrap: wrap; align-items: center; }
+    nav .brand { width: 100%; margin: 0; }
+  }
   h1 { margin: 0 0 4px; font-size: 1.6rem; }
   p.sub { margin: 0 0 20px; opacity: .7; }
   label { display: block; margin: 16px 0 6px; font-weight: 600; }
@@ -36,7 +49,13 @@
 </style>
 </head>
 <body>
+<nav aria-label="메뉴">
+  <div class="brand">Plainly</div>
+  <button type="button" data-tool="plain" aria-current="page">서식 제거 · 줄바꿈 정리</button>
+  <button type="button" data-tool="swap">공백 ↔ 줄바꿈</button>
+</nav>
 <main>
+<section id="tool-plain">
   <h1>Plainly</h1>
   <p class="sub">붙여넣은 텍스트의 서식을 모두 제거하고, 연속된 줄바꿈을 하나로 줄여줍니다.</p>
 
@@ -50,6 +69,28 @@
     <button id="clear" type="button">지우기</button>
     <span id="status" class="status" aria-live="polite"></span>
   </div>
+</section>
+
+<section id="tool-swap" hidden>
+  <h1>공백 ↔ 줄바꿈</h1>
+  <p class="sub">문장의 공백을 줄바꿈으로, 또는 줄바꿈을 공백으로 변환합니다.</p>
+
+  <div class="opts">
+    <label><input type="radio" name="dir" value="s2n" checked> 공백 → 줄바꿈</label>
+    <label><input type="radio" name="dir" value="n2s"> 줄바꿈 → 공백</label>
+  </div>
+
+  <label for="swap-input">입력</label>
+  <textarea id="swap-input" placeholder="여기에 문장을 입력하세요"></textarea>
+
+  <label for="swap-output">결과</label>
+  <textarea id="swap-output" readonly></textarea>
+  <div class="row">
+    <button id="swap-copy" class="primary" type="button">결과 복사</button>
+    <button id="swap-clear" type="button">지우기</button>
+    <span id="swap-status" class="status" aria-live="polite"></span>
+  </div>
+</section>
 </main>
 
 <script>
@@ -101,6 +142,51 @@
     input.value = '';
     update();
     input.focus();
+  });
+
+  // ---- 공백 <-> 줄바꿈 ----
+  const swapIn = document.getElementById('swap-input');
+  const swapOut = document.getElementById('swap-output');
+  const swapStatus = document.getElementById('swap-status');
+
+  function swap(text, dir) {
+    text = text.replace(/\r\n?|\u2028|\u2029/g, '\n');
+    return dir === 'n2s'
+      ? text.replace(/\n+/g, ' ').trim()
+      : text.trim().replace(/[ \t\u00A0\u3000]+/g, '\n');
+  }
+  function swapUpdate() {
+    const dir = document.querySelector('input[name="dir"]:checked').value;
+    swapOut.value = swap(swapIn.value, dir);
+  }
+  swapIn.addEventListener('input', swapUpdate);
+  document.querySelectorAll('input[name="dir"]').forEach((r) => r.addEventListener('change', swapUpdate));
+
+  document.getElementById('swap-copy').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(swapOut.value);
+    } catch {
+      swapOut.select();
+      document.execCommand('copy');
+    }
+    swapStatus.textContent = '복사됨';
+    setTimeout(() => { swapStatus.textContent = ''; }, 1500);
+  });
+  document.getElementById('swap-clear').addEventListener('click', () => {
+    swapIn.value = '';
+    swapUpdate();
+    swapIn.focus();
+  });
+
+  // ---- 사이드바 ----
+  document.querySelectorAll('nav button').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('nav button').forEach((b) => b.removeAttribute('aria-current'));
+      btn.setAttribute('aria-current', 'page');
+      document.querySelectorAll('main > section').forEach((sec) => {
+        sec.hidden = sec.id !== 'tool-' + btn.dataset.tool;
+      });
+    });
   });
 </script>
 </body>
